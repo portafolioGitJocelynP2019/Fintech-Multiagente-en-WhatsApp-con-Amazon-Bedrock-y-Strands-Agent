@@ -23,6 +23,9 @@ El proyecto demuestra un flujo completo ("El Puente"), desde el dispositivo móv
 *   **Agente Supervisor:** Potenciado por **Anthropic Claude 3.5 Haiku** en Amazon Bedrock, operando bajo estricto control de inferencia y protegido por **Bedrock Guardrails** [cite: 1].
 *   **Sub-Agentes (Child Agents):**
     *   *Agente Transbank (Transacciones):* Ejecuta el *Tool Use* con llamadas a APIs simuladas para consultas de estado de pagos (Claude 3.5 Haiku) [cite: 1].
+ 
+      <img width="1408" height="768" alt="Gemini_Generated_Image_4" src="https://github.com/user-attachments/assets/285b51f9-ded3-437f-9aab-0a348772e844" />
+
     *   *Agente Promociones:* Consulta bases de datos y documentos de promociones usando RAG (Amazon Nova Micro) [cite: 1].
 *   **Gestión de Estado y Contexto:** Retención de contexto a largo y corto plazo mediante **AgentCore Memory** (almacenado en DynamoDB), permitiendo retomar conversaciones horas después sin perder el hilo [cite: 1].
 
