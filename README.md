@@ -14,6 +14,9 @@ El objetivo principal de esta demostración es resolver la fricción en servicio
 
 El proyecto demuestra un flujo completo ("El Puente"), desde el dispositivo móvil del usuario hasta la ejecución de transacciones financieras mediante APIs simuladas, pasando por un riguroso ciclo algorítmico de razonamiento.
 
+<img width="1408" height="768" alt="Gemini_Generated_Image_3" src="https://github.com/user-attachments/assets/b0765af7-96e0-48f1-b376-532afa29b6f7" />
+
+
 *   **Canal de Entrada:** WhatsApp Business conectado nativamente vía **AWS End User Messaging** [cite: 1].
 *   **Capa de Ingesta Asíncrona:** Amazon API Gateway + AWS Lambda + Amazon DynamoDB. Implementa un patrón de *Tumbling Window* (ventana de tiempo de 20 segundos) para agrupar mensajes fragmentados del usuario y optimizar tokens [cite: 1].
 *   **Orquestación Nativa:** **Strands Agent Framework** actuando como el cerebro del sistema, sin depender de consolas legacy [cite: 1].
