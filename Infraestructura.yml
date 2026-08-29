@@ -1,0 +1,163 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Infraestructura Backend para Demo Multi-Agente - AWS Community Day'
+
+Resources:
+  # 1. Capa de Ingesta: Tabla DynamoDB con TTL (Tumbling Window)
+  IngestionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: WhatsAppIngestionWindow
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: expirationTime
+        Enabled: true
+
+  # 2. Gestión de Estado: AgentCore Memory
+  MemoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AgentCoreSessionMemory
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  # 3. Base de Datos para el Agente de Promociones (Mostrado en image_c138c9.png)
+  PromotionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AgentPromotionsData
+      AttributeDefinitions:
+        - AttributeName: promotionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: promotionId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  # 4. RAG: Bucket S3 para Bedrock Knowledge Bases
+  KnowledgeBaseBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'community-day-rag-docs-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # 5. IAM Role para las Lambdas de la Demo
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+
+  # 6. Lambda: Mock del API de Transbank (Tool Use para Claude 3.5 Haiku)
+  TransbankMockFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: TransbankApiMock
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.10
+      Code:
+        ZipFile: |
+          import json
+          def handler(event, context):
+              # Simulando respuesta determinista y rápida (Cero Creatividad)
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({
+                      'status': 'APPROVED',
+                      'amount': 50000,
+                      'transaction_id': 'TXN-987654321'
+                  })
+              }
+
+  # 7. API Gateway para exponer el Mock de Transbank
+  TransbankApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: TransbankMockAPI
+      Description: API Gateway para simular el endpoint HTTP de Transbank
+
+  TransbankApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref TransbankApi
+      ParentId: !GetAtt TransbankApi.RootResourceId
+      PathPart: payment-status
+
+  TransbankApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref TransbankApi
+      ResourceId: !Ref TransbankApiResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TransbankMockFunction.Arn}/invocations'
+
+  TransbankLambdaApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref TransbankMockFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${TransbankApi}/*/*/*'
+
+	# 8. Bedrock Security Guardrail (Para el Orchestrator)
+  OrchestratorGuardrail:
+    Type: AWS::Bedrock::Guardrail
+    Properties:
+      Name: FinTechSecurityGuardrail
+      Description: "Filtros de contenido y enmascaramiento de datos sensibles para la demo multiagente"
+      ContentPolicyConfig:
+        FiltersConfig:
+          - InputStrength: HIGH
+            OutputStrength: HIGH
+            Type: HATE
+          - InputStrength: HIGH
+            OutputStrength: HIGH
+            Type: PROMPT_ATTACK
+      SensitiveInformationPolicyConfig:
+        PiiEntitiesConfig:
+          - Action: MASK
+            Type: PHONE
+          - Action: MASK
+            Type: EMAIL
+      BlockedInputMessaging: "Lo siento, no puedo procesar esta solicitud por políticas de seguridad."
+      BlockedOutputsMessaging: "Lo siento, la respuesta ha sido bloqueada por políticas de seguridad."
+
+Outputs:
+  GuardrailId:
+    Description: "ID del Guardrail para pasarlo al framework Strands"
+    Value: !GetAtt OrchestratorGuardrail.GuardrailId
+Outputs:
+  TransbankApiEndpoint:
+    Description: "URL del Mock de Transbank para usar en la configuración de Bedrock / Strands"
+    Value: !Sub "https://${TransbankApi}.execute-api.${AWS::Region}.amazonaws.com/payment-status"
