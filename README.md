@@ -44,5 +44,5 @@ El proyecto demuestra un flujo completo ("El Puente"), desde el dispositivo móv
 
 ---
 **Desarrollado por:** Jocelyn Poblete  
-*Solution Architect*  
+*Solution Architect Cloud*  
 🎙️ Host de **CloudWise** en <a href="https://www.youtube.com/@Cloud_Wise">YouTube</a> y <a href="https://open.spotify.com/show/5eFDsRAExLBnwitqrjW1Rp">Spotify</a>
